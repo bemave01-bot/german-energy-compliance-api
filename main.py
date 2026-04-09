@@ -19,4 +19,15 @@ def get_gas():
 
 @app.get("/kraftstoff")
 def get_fuel():
-    return {"diesel": 1.669, "e10": 1.749, "e5": 1.809}
+    return {
+        "country": "Germany",
+        "currency": "EUR",
+        "unit": "liter",
+        "prices": {
+            "Super_E10": 1.749,
+            "Super_E5": 1.809,
+            "Diesel": 1.669,
+            "HVO100": 1.849,
+            "Autogas_LPG": 1.029
+        }
+    }
