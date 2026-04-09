@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import requests
+import os
 
 app = FastAPI()
 
@@ -9,9 +10,12 @@ def read_root():
 
 @app.get("/strom")
 def get_strom():
-    r = requests.get("https://api.awattar.de/v1/marketdata").json()
-    price = (r['data'][0]['marketprice'] / 1000) * 1.19
-    return {"prijs_kwh_de": round(price, 4)}
+    try:
+        r = requests.get("https://api.awattar.de/v1/marketdata").json()
+        price = (r['data'][0]['marketprice'] / 1000) * 1.19
+        return {"prijs_kwh_de": round(price, 4)}
+    except:
+        return {"error": "Awwattar API onbereikbaar"}
 
 @app.get("/erdgas")
 def get_gas():
