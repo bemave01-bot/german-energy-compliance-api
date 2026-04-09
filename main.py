@@ -1,12 +1,8 @@
 from fastapi import FastAPI
 import requests
-import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = FastAPI()
-
-# PLAK HIERONDER JE TOKEN (Hetzelfde als voor NL)
-ENTSOE_TOKEN = "HIER_JE_TOKEN_PLAKKEN"
 
 @app.get("/")
 def read_root():
@@ -18,34 +14,25 @@ def read_root():
 
 @app.get("/strom")
 def get_german_electricity():
-    # Area Code voor Duitsland/Luxemburg: 10Y1001A1001A82H
-    start = datetime.now().strftime("%Y%m%d0000")
-    end = (datetime.now() + timedelta(days=1)).strftime("%Y%m%d2300")
-    url = f"https://web-api.tp.entsoe.eu/api?documentType=A44&in_Domain=10Y1001A1001A82H&out_Domain=10Y1001A1001A82H&periodStart={start}&periodEnd={end}&securityToken={ENTSOE_TOKEN}"
-    
+    # Deze bron (Awattar) is gratis en heeft geen token nodig voor Duitsland
     try:
-        response = requests.get(url)
-        root = ET.fromstring(response.content)
-        namespace = {'ns': 'urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:0'}
-        prices = []
-        for point in root.findall('.//ns:Point', namespace):
-            price_mwh = float(point.find('ns:price.amount', namespace).text)
-            # Duitsland: MWh naar kWh + 19% MwSt (Duitse BTW)
-            price_kwh = (price_mwh / 1000) * 1.19
-            prices.append(round(price_kwh, 4))
+        response = requests.get("https://api.awattar.de/v1/marketdata")
+        data = response.json()
+        # MWh naar kWh + 19% Duitse BTW (MwSt)
+        current_price_mwh = data['data'][0]['marketprice']
+        price_kwh = (current_price_mwh / 1000) * 1.19
         return {
-            "country": "Germany", 
-            "unit": "kWh", 
-            "currency": "EUR", 
-            "tax": "19% MwSt included", 
-            "data": prices
+            "country": "Germany",
+            "unit": "kWh",
+            "currency": "EUR",
+            "tax": "19% MwSt included",
+            "current_price": round(price_kwh, 4)
         }
     except:
         return {"error": "Technical error fetching German power prices"}
 
 @app.get("/erdgas")
 def get_german_gas():
-    # Actuele Duitse marktprijs schatting
     return {
         "country": "Germany", 
         "unit": "m3", 
@@ -55,7 +42,6 @@ def get_german_gas():
 
 @app.get("/kraftstoff")
 def get_german_fuel():
-    # Gemiddelde Duitse pompprijzen
     return {
         "country": "Germany",
         "currency": "EUR",
@@ -64,7 +50,6 @@ def get_german_fuel():
             "Super_E10": 1.749,
             "Super_E5": 1.809,
             "Diesel": 1.669,
-            "Autogas_LPG": 1.029,
-            "Erdgas_CNG": 1.159
+            "Autogas_LPG": 1.029
         }
     }
