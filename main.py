@@ -5,24 +5,18 @@ app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return {"status": "online", "region": "Germany"}
+    return {"message": "Duitsland API Online"}
 
 @app.get("/strom")
 def get_strom():
-    try:
-        r = requests.get("https://api.awattar.de/v1/marketdata").json()
-        price = (r['data'][0]['marketprice'] / 1000) * 1.19
-        return {"country": "Germany", "unit": "kWh", "price": round(price, 4)}
-    except:
-        return {"error": "API error"}
+    r = requests.get("https://api.awattar.de/v1/marketdata").json()
+    price = (r['data'][0]['marketprice'] / 1000) * 1.19
+    return {"prijs_kwh_de": round(price, 4)}
 
 @app.get("/erdgas")
 def get_gas():
-    return {"country": "Germany", "unit": "m3", "price": 0.8842}
+    return {"prijs_gas_de": 0.8842}
 
 @app.get("/kraftstoff")
 def get_fuel():
-    return {
-        "country": "Germany",
-        "prices": {"Super_E10": 1.749, "Super_E5": 1.809, "Diesel": 1.669}
-    }
+    return {"diesel": 1.669, "e10": 1.749, "e5": 1.809}
