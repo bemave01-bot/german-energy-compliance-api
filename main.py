@@ -45,9 +45,16 @@ async def get_fuel_prices():
 
 @app.get("/transport/maut-rechner")
 async def calculate_maut(entfernung_km: float, gewichtsklasse: str, co2_klasse: int):
-    # Logik für den Maut-Rechner
-    tarif = MAUT_TABELLE_2026.get(gewichtsklasse, {}).get(co2_class, 0.348)
+    # We voegen een 'default' waarde toe (0.348) voor als de klasse niet wordt gevonden
+    klasse_data = MAUT_TABELLE_2026.get(gewichtsklasse)
+    
+    if not klasse_data:
+        # Als de klasse (bijv. >18 zonder t) niet bestaat, geef een duidelijke foutmelding ipv een crash
+        return {"error": f"Gewichtsklasse '{gewichtsklasse}' niet gevonden. Gebruik: '>18t', '12-18t' of '3.5-7.5t'"}
+
+    tarif = klasse_data.get(co2_klasse, 0.348)
     gesamtkosten = entfernung_km * tarif
+    
     return {
         "berechnung": {
             "entfernung": f"{entfernung_km} km",
@@ -55,10 +62,6 @@ async def calculate_maut(entfernung_km: float, gewichtsklasse: str, co2_klasse: 
             "co2_emissionsklasse": co2_klasse,
             "tarif_pro_km": tarif,
             "maut_gesamtkosten": round(gesamtkosten, 2)
-        },
-        "compliance": {
-            "gesetz": "Bundesfernstraßenmautgesetz (BFStrMG) 2026",
-            "zeitstempel": datetime.now().isoformat()
         }
     }
 
