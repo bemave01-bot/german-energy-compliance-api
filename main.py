@@ -14,38 +14,43 @@ def read_root():
 @app.get("/strom")
 def get_strom():
     try:
-        r = requests.get("https://api.awattar.de/v1/marketdata").json()
+        r = requests.get("https://api.awattar.de/v1/marketdata", timeout=5).json()
         market_price_mwh = r['data'][0]['marketprice']
-        price_kwh_ex_vat = round(market_price_mwh / 1000, 4)
-        vat_rate = 0.19
-        total_price = round(price_kwh_ex_vat * (1 + vat_rate), 4)
+        # Omrekening naar kWh en 19% BTW
+        price_kwh_net = round(market_price_mwh / 1000, 4)
+        total_price = round(price_kwh_net * 1.19, 4)
         return {
             "country": "Germany",
             "unit": "kWh",
-            "market_price_net": price_kwh_ex_vat,
+            "market_price_net": price_kwh_net,
             "total_price_inc_vat": total_price,
             "vat_rate": "19%",
-            "info": "EPEX Spot Day-Ahead"
+            "info": "EPEX Spot Day-Ahead Market"
         }
-    except:
-        return {"error": "Source unavailable"}
+    except Exception:
+        return {"error": "External market data currently unavailable"}
 
 @app.get("/erdgas")
 def get_gas():
-    # THE Spot Market based calculation
+    # THE Spot Market based calculation (Pro-level transparency)
     base_market_kwh = 0.0382
-    fees_and_co2 = 0.0332
-    total_kwh_inc_vat = round((base_market_kwh + fees_and_co2) * 1.19, 4)
-    price_per_m3 = round(total_kwh_inc_vat * 10.55, 4)
+    co2_tax = 0.0082
+    grid_fees = 0.0250
+    
+    net_price_kwh = base_market_kwh + co2_tax + grid_fees
+    total_price_kwh = round(net_price_kwh * 1.19, 4)
+    # Conversie naar m3 (Duitse standaard 10.55)
+    price_per_m3 = round(total_price_kwh * 10.55, 4)
+    
     return {
         "country": "Germany",
         "unit": "m3",
         "price_all_in": price_per_m3,
         "details": {
-            "price_per_kwh": total_kwh_inc_vat,
+            "price_per_kwh": total_price_kwh,
             "conversion_factor": "10.55 kWh/m3",
             "vat_rate": "19%",
-            "components": ["Market Price", "CO2 Tax", "Grid Fees"]
+            "components": ["Market Price", "CO2 Tax (BEHG)", "Grid Fees"]
         }
     }
 
@@ -54,6 +59,7 @@ def get_fuel():
     return {
         "country": "Germany",
         "unit": "liter",
+        "currency": "EUR",
         "prices": {
             "Super_E10": 1.749,
             "Super_E5": 1.809,
@@ -62,5 +68,5 @@ def get_fuel():
             "Autogas_LPG": 1.029
         },
         "tax_status": "Included",
-        "note": "Prices include Mineralölsteuer and 19% VAT."
+        "note": "Retail pump prices including 19% VAT and energy taxes."
     }
