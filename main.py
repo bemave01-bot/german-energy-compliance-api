@@ -1,80 +1,28 @@
-from fastapi import FastAPI
-from datetime import datetime
+@app.get("/energie/rechnung-check")
+async def get_exact_costs(verbruik_kwh: float):
+    # Officiële tarieven 2026
+    netto_markt = 0.115
+    arbeitspreis_netz = 0.1034  # Hard cijfer BNetzA
+    stromsteuer = 0.0205        # Wettelijk vast
+    grundpreis_jahr = 145.20    # Jaarvast
+    
+    netto_totaal = netto_markt + arbeitspreis_netz + stromsteuer
+    btw = netto_totaal * 0.19
+    bruto_totaal = netto_totaal + btw
 
-app = FastAPI(title="Compliance Data API 2026 - Deutschland Edition")
-
-# --- STATISCHE DATEN (Jährliche Wartung) ---
-MAUT_TABELLE_2026 = {
-    ">18t": {1: 0.348, 2: 0.302, 3: 0.250, 4: 0.150, 5: 0.087},
-    "12-18t": {1: 0.238, 2: 0.200, 3: 0.160, 4: 0.100, 5: 0.059},
-    "3.5-7.5t": {1: 0.151, 2: 0.120, 3: 0.090, 4: 0.050, 5: 0.000}
-}
-
-CO2_FAKTOREN = {
-    "diesel_b7": 2.64,
-    "hvo100": 0.25,
-    "benzin_e5": 2.39,
-    "benzin_e10": 2.31,
-    "lpg_autogas": 1.61,
-    "erdgas": 1.88,
-    "strom_mix": 0.35
-}
-
-# --- ABSCHNITT 1: TRANSPORT & LOGISTIK API ---
-
-@app.get("/transport/kraftstoff-preise")
-async def get_fuel_prices():
     return {
-        "kraftstoffe": {
-            "diesel_b7": {"preis": 1.749, "einheit": "EUR/L", "co2_kg": CO2_FAKTOREN["diesel_b7"]},
-            "hvo100": {"preis": 2.155, "einheit": "EUR/L", "co2_kg": CO2_FAKTOREN["hvo100"]},
-            "benzin_e5": {"preis": 1.899, "einheit": "EUR/L", "co2_kg": CO2_FAKTOREN["benzin_e5"]},
-            "benzin_e10": {"preis": 1.839, "einheit": "EUR/L", "co2_kg": CO2_FAKTOREN["benzin_e10"]},
-            "lpg_autogas": {"preis": 0.725, "einheit": "EUR/L", "co2_kg": CO2_FAKTOREN["lpg_autogas"]},
-            "adblue": {"preis": 0.842, "einheit": "EUR/L", "hinweis": "Marktdurchschnitt"}
+        "variable_kosten_pro_kwh": {
+            "markt": netto_markt,
+            "netzentgelt": arbeitspreis_netz,
+            "steuer": stromsteuer,
+            "bruto": round(bruto_totaal, 4)
         },
-        "steuer_info": {
-            "deutschland_behg_2026": "Inklusive",
-            "co2_preis_pro_tonne": 55.00
+        "fixkosten": {
+            "grundpreis_p_a": grundpreis_jahr,
+            "grundpreis_p_monat": round(grundpreis_jahr / 12, 2)
         },
-        "metadaten": {
-            "quelle": "Marktdaten-Aggregator / MTS-K",
-            "letzte_aktualisierung": datetime.now().isoformat()
+        "compliance": {
+            "co2_kg_kwh": 0.35,
+            "standard": "BNetzA 2026 Compliance"
         }
     }
-
-@app.get("/transport/maut-rechner")
-async def calculate_maut(entfernung_km: float, gewichtsklasse: str, co2_klasse: int):
-    # We voegen een 'default' waarde toe (0.348) voor als de klasse niet wordt gevonden
-    klasse_data = MAUT_TABELLE_2026.get(gewichtsklasse)
-    
-    if not klasse_data:
-        # Als de klasse (bijv. >18 zonder t) niet bestaat, geef een duidelijke foutmelding ipv een crash
-        return {"error": f"Gewichtsklasse '{gewichtsklasse}' niet gevonden. Gebruik: '>18t', '12-18t' of '3.5-7.5t'"}
-
-    tarif = klasse_data.get(co2_klasse, 0.348)
-    gesamtkosten = entfernung_km * tarif
-    
-    return {
-        "berechnung": {
-            "entfernung": f"{entfernung_km} km",
-            "gewichtsklasse": gewichtsklasse,
-            "co2_emissionsklasse": co2_klasse,
-            "tarif_pro_km": tarif,
-            "maut_gesamtkosten": round(gesamtkosten, 2)
-        }
-    }
-
-# --- ABSCHNITT 2: ENERGIE API ---
-
-@app.get("/energie/markt-preise")
-async def get_energy_rates():
-    return {
-        "strom": {"preis": 0.115, "einheit": "EUR/kWh", "co2_kg": CO2_FAKTOREN["strom_mix"]},
-        "erdgas": {"preis": 0.38, "unit": "EUR/m3", "co2_kg": CO2_FAKTOREN["erdgas"]},
-        "metadaten": {"quelle": "EPEX Spot / TTF Hub"}
-    }
-
-@app.get("/")
-async def root():
-    return {"status": "online", "nachricht": "Compliance-Daten-API ist betriebsbereit"}
